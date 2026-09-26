@@ -178,6 +178,7 @@
     margin-left:6px;font-family:'Karla',sans-serif;
   }
   .direction-toggle button.active{border-color:var(--forest);color:var(--forest);}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.9em;background:#eee9dc;padding:1px 4px;border-radius:3px}
 </style>
 </head>
 <body>
@@ -191,6 +192,7 @@
     <button data-panel="add" class="active">Add word</button>
     <button data-panel="list">My words (<span id="countTag">0</span>)</button>
     <button data-panel="quiz">Quiz me</button>
+    <button data-panel="sync">GitHub Sync</button>
   </nav>
 
   <section id="panel-add" class="panel active">
@@ -232,6 +234,35 @@
     </div>
     <div id="quizArea"></div>
   </section>
+  <section id="panel-sync" class="panel">
+    <p style="font-family:'Fraunces',serif;font-weight:600;font-size:1.1rem;margin:0 0 6px;">GitHub Gist backup</p>
+    <p style="color:var(--ink-soft);font-size:0.86rem;margin-top:0;">
+      Your words stay available offline in this browser. When online, push them to your private <code>words.json</code> Gist.
+    </p>
+    <div class="field">
+      <label for="gistId">Gist ID</label>
+      <input type="text" id="gistId" value="86b1a97547925c14b2f42318c4d36c">
+    </div>
+    <div class="field">
+      <label for="githubToken">GitHub fine-grained token</label>
+      <input type="password" id="githubToken" placeholder="github_pat_…">
+    </div>
+    <div class="row" style="margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:.82rem;">
+        <input type="checkbox" id="rememberToken"> Remember token on this device
+      </label>
+    </div>
+    <div class="row">
+      <button class="btn" id="btnPull">Pull from Gist</button>
+      <button class="btn secondary" id="btnPush">Push to Gist</button>
+      <button class="btn ghost" id="btnTest">Test connection</button>
+    </div>
+    <p id="gistStatus" style="font-size:0.85rem;margin-top:12px;"></p>
+    <p style="color:var(--ink-soft);font-size:0.78rem;line-height:1.45;margin-top:20px;">
+      Security note: a token entered in a browser app can be accessed by code running on the same origin.
+      Use a fine-grained token with only <strong>Gists: Read and write</strong>, and never paste it into your HTML/JavaScript source.
+    </p>
+  </section>
 </div>
 
 <script>
@@ -242,6 +273,142 @@ let quizPool = [];
 let quizIndex = 0;
 let quizScore = {right:0, wrong:0};
 let currentAnswerRevealed = false;
+
+
+const GIST_DEFAULT_ID = '86b1a97547925c14b2f42318c4d36c';
+const GIST_FILE = 'words.json';
+const GIST_API = 'https://api.github.com/gists/';
+const TOKEN_KEY = 'vokabeln-github-token';
+const TOKEN_SESSION_KEY = 'vokabeln-github-token-session';
+const GIST_KEY = 'vokabeln-gist-id';
+let gistBusy = false;
+
+function getGistId(){
+  return (localStorage.getItem(GIST_KEY) || GIST_DEFAULT_ID).trim();
+}
+function getToken(){
+  return sessionStorage.getItem(TOKEN_SESSION_KEY) ||
+         localStorage.getItem(TOKEN_KEY) || '';
+}
+function setToken(token, remember){
+  sessionStorage.removeItem(TOKEN_SESSION_KEY);
+  if(remember){
+    localStorage.setItem(TOKEN_KEY, token);
+  }else{
+    localStorage.removeItem(TOKEN_KEY);
+    if(token) sessionStorage.setItem(TOKEN_SESSION_KEY, token);
+  }
+}
+function setGistStatus(message, kind=''){
+  const el=document.getElementById('gistStatus');
+  if(!el) return;
+  el.textContent=message;
+  el.style.color = kind==='error' ? 'var(--wrong)' : kind==='ok' ? 'var(--forest)' : 'var(--ink-soft)';
+}
+function authHeaders(token){
+  return {
+    'Accept':'application/vnd.github+json',
+    'Authorization':'Bearer '+token,
+    'X-GitHub-Api-Version':'2026-03-10',
+    'Content-Type':'application/json'
+  };
+}
+async function githubRequest(method, gistId, token, body=null){
+  const res=await fetch(GIST_API+encodeURIComponent(gistId), {
+    method,
+    headers:authHeaders(token),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let data=null;
+  try{ data=await res.json(); }catch(e){}
+  if(!res.ok){
+    const msg=data && (data.message || data.documentation_url) ? data.message : `GitHub returned HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+function readSyncFields(){
+  const id=(document.getElementById('gistId')?.value || getGistId()).trim();
+  const token=(document.getElementById('githubToken')?.value || getToken()).trim();
+  const remember=!!document.getElementById('rememberToken')?.checked;
+  if(id) localStorage.setItem(GIST_KEY,id);
+  if(token) setToken(token,remember);
+  return {id,token};
+}
+function hydrateSyncFields(){
+  const id=document.getElementById('gistId');
+  const token=document.getElementById('githubToken');
+  const remember=document.getElementById('rememberToken');
+  if(id) id.value=getGistId();
+  if(token) token.value=getToken();
+  if(remember) remember.checked=!!localStorage.getItem(TOKEN_KEY);
+}
+async function testGistConnection(){
+  if(gistBusy) return;
+  const {id,token}=readSyncFields();
+  if(!id || !token){ setGistStatus('Enter the Gist ID and token first.','error'); return; }
+  gistBusy=true;
+  setGistStatus('Testing connection…');
+  try{
+    const data=await githubRequest('GET',id,token);
+    const file=data.files && data.files[GIST_FILE];
+    if(!file) throw new Error(`The Gist does not contain ${GIST_FILE}.`);
+    setGistStatus(`Connected ✓ ${file.filename} found. Last updated: ${new Date(data.updated_at).toLocaleString()}`,'ok');
+  }catch(err){
+    setGistStatus('Connection failed: '+err.message,'error');
+  }finally{ gistBusy=false; }
+}
+async function pullFromGist(){
+  if(gistBusy) return;
+  const {id,token}=readSyncFields();
+  if(!id || !token){ setGistStatus('Enter the Gist ID and token first.','error'); return; }
+  if(words.length && !confirm('Pulling will replace the current local word list with the Gist copy. Continue?')) return;
+  gistBusy=true;
+  setGistStatus('Pulling from GitHub…');
+  try{
+    const data=await githubRequest('GET',id,token);
+    const file=data.files && data.files[GIST_FILE];
+    if(!file || typeof file.content!=='string') throw new Error(`Could not read ${GIST_FILE}.`);
+    const parsed=JSON.parse(file.content);
+    if(!parsed || !Array.isArray(parsed.words)) throw new Error('words.json must contain a "words" array.');
+    words=parsed.words.filter(w=>w && w.word && w.meaning).map(w=>({
+      id:w.id || (Date.now()+Math.random()),
+      word:String(w.word),
+      meaning:String(w.meaning),
+      example:w.example || '',
+      correct:Number(w.correct||0),
+      wrong:Number(w.wrong||0)
+    }));
+    saveWords(); renderList(); updateCountTag();
+    setGistStatus(`Pulled ${words.length} word${words.length===1?'':'s'} ✓`,'ok');
+  }catch(err){
+    setGistStatus('Pull failed: '+err.message,'error');
+  }finally{ gistBusy=false; }
+}
+async function pushToGist(silent=false){
+  if(gistBusy) return false;
+  const {id,token}=readSyncFields();
+  if(!id || !token){ if(!silent) setGistStatus('Enter the Gist ID and token first.','error'); return false; }
+  gistBusy=true;
+  if(!silent) setGistStatus('Saving to GitHub…');
+  try{
+    const payload={
+      words: words.map(w=>({
+        id:w.id, word:w.word, meaning:w.meaning, example:w.example||'',
+        correct:Number(w.correct||0), wrong:Number(w.wrong||0)
+      }))
+    };
+    await githubRequest('PATCH',id,token,{files:{[GIST_FILE]:{content:JSON.stringify(payload,null,2)}}});
+    setGistStatus(`Saved ${words.length} word${words.length===1?'':'s'} to GitHub ✓`,'ok');
+    return true;
+  }catch(err){
+    if(!silent) setGistStatus('Push failed: '+err.message,'error');
+    return false;
+  }finally{ gistBusy=false; }
+}
+async function autoPush(){
+  if(navigator.onLine && getToken() && getGistId()) await pushToGist(true);
+}
 
 function loadWords(){
   try{
@@ -428,6 +595,7 @@ document.getElementById('btnAdd').addEventListener('click', async () => {
   wordEl.value = ''; meaningEl.value = ''; exampleEl.value = '';
   status.style.color = 'var(--forest)';
   status.textContent = `Saved "${word}".`;
+  if(navigator.onLine && getToken()) pushToGist(true);
   wordEl.focus();
   setTimeout(() => { status.textContent=''; }, 2500);
 });
@@ -441,6 +609,7 @@ document.querySelectorAll('nav button').forEach(btn => {
     document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
     if(btn.dataset.panel === 'quiz') startQuiz();
     if(btn.dataset.panel === 'list') renderList();
+    if(btn.dataset.panel === 'sync') hydrateSyncFields();
   });
 });
 
@@ -520,14 +689,19 @@ function renderQuiz(){
     const feedback = document.getElementById('quizFeedback');
     if(isRight){
       quizScore.right++;
+      w.correct = Number(w.correct||0) + 1;
       feedback.className = 'quiz-feedback correct';
       feedback.textContent = 'Correct!';
     } else {
       quizScore.wrong++;
+      w.wrong = Number(w.wrong||0) + 1;
       feedback.className = 'quiz-feedback wrong';
       const answerHtml = quizDirection === 'deen' ? escapeHtml(correctAnswer) : formatWordHtml(correctAnswer);
       feedback.innerHTML = `Not quite. <div class="quiz-answer-reveal">Answer: ${answerHtml}</div>`;
     }
+    saveWords();
+    updateCountTag();
+    if(navigator.onLine && getToken()) pushToGist(true);
     document.getElementById('btnCheck').textContent = 'Next';
   }
   function nextCard(){
@@ -536,6 +710,26 @@ function renderQuiz(){
   }
 }
 
+document.getElementById('btnPull').addEventListener('click', pullFromGist);
+document.getElementById('btnPush').addEventListener('click', () => pushToGist(false));
+document.getElementById('btnTest').addEventListener('click', testGistConnection);
+document.getElementById('gistId').addEventListener('change', e => {
+  const id=e.target.value.trim();
+  if(id) localStorage.setItem(GIST_KEY,id);
+});
+document.getElementById('githubToken').addEventListener('change', e => {
+  const remember=document.getElementById('rememberToken').checked;
+  setToken(e.target.value.trim(),remember);
+});
+document.getElementById('rememberToken').addEventListener('change', e => {
+  const token=document.getElementById('githubToken').value.trim() || getToken();
+  setToken(token,e.target.checked);
+});
+window.addEventListener('online', () => {
+  if(getToken()) setGistStatus('Back online. Your next save can sync to GitHub.','ok');
+});
+
+hydrateSyncFields();
 loadWords();
 </script>
 </body>
