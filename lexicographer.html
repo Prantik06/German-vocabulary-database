@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lexicographer — Genesis Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f3ec;--card:#fffdf8;--ink:#1b2033;--mute:#6b7085;--line:#e4dfd2;--gold:#b8862b;--accent:#2b3a7a;--accent2:#4b5fc4;--chip:#eef0fb}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1222;--card:#171c33;--ink:#f0eee6;--mute:#9aa0bd;--line:#2a3050;--gold:#e0b25a;--accent:#8ea0ff;--accent2:#aab7ff;--chip:#222a4d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;min-height:100vh}
+.hero{background:linear-gradient(135deg,#1a2350,#2b3a7a 60%,#5b3f8f);color:#fff;padding:48px 20px 90px;text-align:center;overflow:hidden}
+.logo{display:inline-flex;align-items:center;gap:12px}
+.mark{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#e0b25a,#b8862b);display:grid;place-items:center;font:700 26px Fraunces,serif;color:#1a2350;box-shadow:0 6px 20px #0005}
+h1{font:700 40px Fraunces,Georgia,serif;margin:0}
+.tag{margin:12px 0 0;opacity:.8;font-size:15px}
+main{max-width:760px;margin:-56px auto 40px;padding:0 16px}
+.search{display:flex;gap:8px;background:var(--card);padding:10px;border-radius:18px;box-shadow:0 14px 40px #0002;border:1px solid var(--line)}
+.search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--ink);font:500 20px Inter,sans-serif;padding:10px 12px}
+.search button{border:0;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font:600 15px Inter,sans-serif;padding:0 24px;cursor:pointer}
+.search button:disabled{opacity:.6}
+.hint{text-align:center;color:var(--mute);font-size:13px;margin:14px 0}
+.hint b{cursor:pointer;color:var(--accent);font-weight:500;margin:0 5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:0 8px 30px #0001}
+.top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.word{font:700 38px Fraunces,Georgia,serif;margin:0}
+.pos{display:inline-block;margin-top:6px;background:var(--chip);color:var(--accent);padding:4px 12px;border-radius:99px;font-size:13px;font-weight:600}
+.lvl{width:64px;height:64px;border-radius:16px;display:grid;place-items:center;font:700 24px Fraunces,serif;color:#fff}
+.A1,.A2{background:linear-gradient(135deg,#2e9d6b,#5ac48f)}.B1,.B2{background:linear-gradient(135deg,#d08a1f,#eab24f)}.C1,.C2{background:linear-gradient(135deg,#b23a5c,#e0607f)}
+.lvlwrap{text-align:center;font-size:11px;color:var(--mute)}
+.mean{margin:18px 0;padding-left:20px;font-size:19px}.mean li{margin:4px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:16px 0}
+.cell{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.cell small{display:block;color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.cell span{font:600 18px Fraunces,serif}
+.ex{border-left:3px solid var(--gold);padding:6px 16px;margin:20px 0 6px}
+.ex small{color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.8px;font-size:11px}
+.ex .de{font:500 20px Fraunces,serif;margin:4px 0}.ex .en{color:var(--mute);font-size:14px}
+details{margin-top:16px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+summary{cursor:pointer;padding:14px 16px;font-weight:600;background:var(--chip);color:var(--accent)}
+.tw{overflow-x:auto;padding:8px}table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:7px 10px;border:1px solid var(--line);text-align:left}th{background:var(--bg);color:var(--mute)}
+.msg{text-align:center;color:var(--mute);padding:34px}
+footer{text-align:center;color:var(--mute);font-size:12px;padding:10px 16px 30px;line-height:1.7}footer b{color:var(--gold)}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="logo"><div class="mark">L</div><h1>Lexicographer</h1></div>
+  <p class="tag">Look up any German word — meaning, grammar, level &amp; example.</p>
+</header>
+<main>
+  <div class="search"><input id="q" placeholder="Enter a German word…" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="go">Look up</button></div>
+  <div class="hint">Try: <b>Haus</b><b>gehen</b><b>machen</b><b>schön</b></div>
+  <div id="out"></div>
+</main>
+<footer>© <span id="yr"></span> <b>Genesis Studio</b> · Developed by Prantik Sarder Snigdho<br>
+Free data: Wiktionary (CC BY-SA) · Tatoeba (CC BY 2.0) · German Wikipedia</footer>
+<script>
+document.getElementById('yr').textContent=new Date().getFullYear();
+
+// ---- Level estimate: share of German Wikipedia articles containing the word.
+// Tune these thresholds, or add exact levels (e.g. from Goethe word lists) to OVERRIDES.
+const WIKI_ARTICLES=3000000;
+const THRESHOLDS=[[0.15,'A1'],[0.05,'A2'],[0.015,'B1'],[0.004,'B2'],[0.0008,'C1'],[0,'C2']];
+const OVERRIDES={/* 'haus':'A1', 'gehen':'A1' */};
+
+const $=id=>document.getElementById(id),out=$('out'),inp=$('q'),btn=$('go');
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const POS=/^(Noun|Proper_noun|Verb|Adjective|Adverb|Preposition|Conjunction|Pronoun|Article|Interjection|Numeral|Particle|Determiner|Contraction|Phrase)$/;
+const ART={m:'der',f:'die',n:'das',p:'die'};
+
+async function getJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(r.status);return r.json()}
+
+async function wikt(title){
+  const j=await getJSON(`https://en.wiktionary.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&prop=text&redirects=1&format=json&origin=*`);
+  return j.parse?j.parse.text['*']:null;
+}
+function germanSection(html){
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const h=doc.getElementById('German');if(!h)return null;
+  let start=h.closest('.mw-heading')||h;while(start.parentElement&&start.parentElement.tagName!=='BODY'&&!start.parentElement.classList.contains('mw-parser-output'))start=start.parentElement;let n=start.nextElementSibling;const sec=doc.createElement('div');
+  while(n&&!(n.matches('h2,.mw-heading2')||n.querySelector(':scope > h2'))){const nx=n.nextElementSibling;sec.appendChild(n);n=nx}
+  return sec;
+}
+function clean(el){el.querySelectorAll('sup,style,script,img,link,.mw-editsection').forEach(x=>x.remove());return el.textContent.replace(/\s+/g,' ').trim()}
+function parseEntry(sec){
+  const head=[...sec.querySelectorAll('h3,h4')].find(h=>POS.test(h.id.replace(/_\d+$/,'')));
+  if(!head)return null;
+  const pos=head.id.replace(/_\d+$/,'').replace('_',' ');
+  const hw=sec.querySelector('.headword-line');
+  const hwText=hw?clean(hw.cloneNode(true)):'';
+  const e={pos,senses:[],example:null};
+  const genders=hw?[...hw.querySelectorAll('.gender abbr')].map(a=>a.textContent.trim()):[];
+  if(pos.includes('Noun')){
+    e.gender=genders[0]||'';
+    e.article=ART[e.gender]||'';
+    const m=hwText.match(/plural\s+([^,)]+)/);e.plural=m?m[1].trim():(/uncountable/.test(hwText)?'— (uncountable)':'');
+  }
+  if(pos==='Verb'){
+    const t=hwText.match(/\b(weak|strong|mixed)\b/);
+    e.verbType=t?(t[1]==='weak'?'Regular (weak)':t[1]==='strong'?'Irregular (strong)':'Irregular (mixed)'):'';
+    e.irregular=!!t&&t[1]!=='weak';
+    const pp=hwText.match(/past participle\s+([^,)]+)/),ax=hwText.match(/auxiliary\s+(\w+)/);
+    e.partizip=pp?((ax?(ax[1]==='sein'?'ist ':'hat '):'')+pp[1].trim()):'';
+    const tb=sec.querySelector('table.inflection-table, table[class*="inflection"]');
+    if(tb)e.table=tb;
+  }
+  let ol=hw&&hw.nextElementSibling,i=0;while(ol&&ol.tagName!=='OL'&&i++<6)ol=ol.nextElementSibling;
+  if(ol&&ol.tagName==='OL'){
+    [...ol.children].filter(li=>li.tagName==='LI').slice(0,3).forEach(li=>{
+      const c=li.cloneNode(true);
+      const dd=c.querySelector('dd');
+      if(dd&&!e.example){const p=dd.textContent.split('\n').map(s=>s.trim()).filter(Boolean);if(p[0])e.example={de:p[0],en:p[1]||''}}
+      c.querySelectorAll('ul,ol,dl').forEach(x=>x.remove());
+      const t=clean(c);if(t)e.senses.push(t);
+    });
+  }
+  return e;
+}
+function tableHTML(tb){
+  const c=tb.cloneNode(true);
+  c.querySelectorAll('script,style,img,link,sup').forEach(x=>x.remove());
+  c.querySelectorAll('*').forEach(el=>{[...el.attributes].forEach(a=>{if(!['colspan','rowspan'].includes(a.name))el.removeAttribute(a.name)});if(el.tagName==='A')el.replaceWith(document.createTextNode(el.textContent))});
+  return c.outerHTML;
+}
+async function tatoeba(w){
+  try{
+    const j=await getJSON(`https://tatoeba.org/en/api_v0/search?from=deu&to=eng&query=${encodeURIComponent(w)}&sort=words&orphans=no&trans_filter=limit`);
+    const rs=(j.results||[]).filter(r=>{const n=r.text.split(/\s+/).length;return n>=3&&n<=9&&r.text.toLowerCase().includes(w.toLowerCase())});
+    const r=rs.find(r=>(r.translations||[]).flat().some(t=>t.lang==='eng'))||rs[0];
+    if(!r)return null;
+    const tr=(r.translations||[]).flat().find(t=>t.lang==='eng');
+    return {de:r.text,en:tr?tr.text:''};
+  }catch(e){return null}
+}
+async function level(w){
+  if(OVERRIDES[w.toLowerCase()])return OVERRIDES[w.toLowerCase()];
+  try{
+    const j=await getJSON(`https://de.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(w)}&srlimit=1&srinfo=totalhits&format=json&origin=*`);
+    const ratio=j.query.searchinfo.totalhits/WIKI_ARTICLES;
+    return THRESHOLDS.find(([t])=>ratio>=t)[1];
+  }catch(e){return ''}
+}
+async function look(raw){
+  const w=raw.trim();if(!w)return;
+  btn.disabled=true;out.innerHTML='<div class="msg">Looking it up…</div>';
+  try{
+    const cands=[...new Set([w,w[0].toUpperCase()+w.slice(1),w.toLowerCase()])];
+    let sec=null,title=w,netErr=null;
+    for(const c of cands){try{const h=await wikt(c);const s=h&&germanSection(h);if(s){sec=s;title=c;break}}catch(e){netErr=e}}
+    if(!sec&&netErr){out.innerHTML='<div class="card msg"><b>Could not reach Wiktionary.</b><br>'+esc(netErr.message||netErr)+'<br><br>Open this file directly in a normal browser (Chrome, Edge, Firefox, Safari) or host it on GitHub Pages/Netlify. Preview windows and some apps block outside connections.</div>';return}
+    if(!sec){out.innerHTML='<div class="card msg">No German entry found for “'+esc(w)+'”. Check the spelling.</div>';return}
+    const e=parseEntry(sec);
+    if(!e){out.innerHTML='<div class="card msg">Entry found, but it could not be read.</div>';return}
+    const [ex,lv]=await Promise.all([e.example?Promise.resolve(null):tatoeba(title),level(title)]);
+    render(title,e,e.example||ex,lv);
+  }catch(err){out.innerHTML='<div class="card msg">Error: '+esc(err.message||err)+'</div>'}
+  finally{btn.disabled=false}
+}
+const cell=(l,v)=>v?`<div class="cell"><small>${l}</small><span>${esc(v)}</span></div>`:'';
+function render(title,e,ex,lv){
+  out.innerHTML=`<div class="card">
+   <div class="top"><div><h2 class="word">${esc(e.article?e.article+' ':'')}${esc(title)}</h2><span class="pos">${esc(e.pos)}</span></div>
+   ${lv?`<div class="lvlwrap"><div class="lvl ${lv}">${lv}</div>Est. CEFR level</div>`:''}</div>
+   <ol class="mean">${e.senses.map(s=>`<li>${esc(s)}</li>`).join('')||'<li>—</li>'}</ol>
+   <div class="grid">${cell('Plural',e.plural)}${cell('Verb type',e.verbType)}${cell('Partizip II',e.partizip)}</div>
+   ${ex?`<div class="ex"><small>Example</small><div class="de">${esc(ex.de)}</div><div class="en">${esc(ex.en)}</div></div>`:''}
+   ${e.irregular&&e.table?`<details><summary>Conjugation — all pronouns</summary><div class="tw">${tableHTML(e.table)}</div></details>`:''}
+  </div>`;
+}
+btn.onclick=()=>look(inp.value);
+inp.addEventListener('keydown',e=>{if(e.key==='Enter')look(inp.value)});
+document.querySelectorAll('.hint b').forEach(b=>b.onclick=()=>{inp.value=b.textContent;look(b.textContent)});
+</script>
+</body>
+</html>
